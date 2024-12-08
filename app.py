@@ -1,37 +1,50 @@
-from flask import Flask, render_template, request
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing import image
-import numpy as np
 import os
+import keras
+from keras.models import load_model
+import streamlit as st
+import tensorflow as tf
+import numpy as np
 
-app = Flask(__name__)
-UPLOAD_FOLDER = 'static/uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# Menampilkan judul aplikasi
+st.header('Hewan Classification CNN Model')
 
-# Load model
-model = load_model("model_bebek_angsa.h5")
+# Daftar nama hewan yang sesuai dengan urutan output model
+Hewan_names = ['Angsa', 'Bebek', 'Itik']
 
-def predict_image(img_path):
-    img = image.load_img(img_path, target_size=(150, 150))
-    img_array = image.img_to_array(img) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
-    prediction = model.predict(img_array)
-    return "Angsa" if prediction[0][0] > 0.5 else "Bebek"
+# Memuat model yang telah disimpan
+model = load_model('image_classify.keras')
 
-@app.route("/", methods=["GET", "POST"])
-def index():
-    if request.method == "POST":
-        if "file" not in request.files:
-            return "No file uploaded", 400
+# Fungsi untuk mengklasifikasikan gambar
+def classify_images(image_path):
+    # Memuat gambar dan mengubah ukurannya sesuai input model
+    input_image = tf.keras.utils.load_img(image_path, target_size=(180, 180))
+    input_image_array = tf.keras.utils.img_to_array(input_image)
+    input_image_exp_dim = tf.expand_dims(input_image_array, 0)  # Menambahkan dimensi batch
 
-        file = request.files["file"]
-        if file:
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-            file.save(filepath)
-            prediction = predict_image(filepath)
-            return render_template("index.html", prediction=prediction, filepath=filepath)
+    # Melakukan prediksi
+    predictions = model.predict(input_image_exp_dim)
+    
+    # Menggunakan softmax untuk mendapatkan probabilitas kelas
+    result = tf.nn.softmax(predictions[0])
+    
+    # Menentukan kelas dengan probabilitas tertinggi
+    outcome = f'Gambar ini termasuk dalam kelas {Hewan_names[np.argmax(result)]} dengan skor {np.max(result) * 100:.2f}%'
+    return outcome
 
-    return render_template("index.html", prediction=None, filepath=None)
+# Mengunggah gambar
+uploaded_file = st.file_uploader('Unggah Gambar', type=['jpg', 'png', 'jpeg', 'webp'])
+if uploaded_file is not None:
+    # Menyimpan file yang diunggah di folder 'upload'
+    upload_folder = 'upload'
+    if not os.path.exists(upload_folder):
+        os.makedirs(upload_folder)
+    
+    file_path = os.path.join(upload_folder, uploaded_file.name)
+    with open(file_path, 'wb') as f:
+        f.write(uploaded_file.getbuffer())
 
-if __name__ == "__main__":
-    app.run(debug=True)
+    # Menampilkan gambar yang diunggah
+    st.image(uploaded_file, width=200)
+
+    # Menampilkan hasil klasifikasi gambar
+    st.markdown(classify_images(file_path))
