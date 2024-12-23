@@ -12,7 +12,7 @@ st.header('Hewan Classification CNN Model')
 Hewan_names = ['Angsa', 'Bebek', 'Itik']
 
 # Memuat model yang telah disimpan
-model = load_model('image_classify.keras')
+model = load_model('model12.keras')
 
 # Fungsi untuk mengklasifikasikan gambar
 def classify_images(image_path):
